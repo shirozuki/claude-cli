@@ -5,8 +5,8 @@ A lightweight shell wrapper that runs [Claude Code](https://github.com/anthropic
 ## Requirements
 
 - [Docker](https://docs.docker.com/get-docker/) with [Buildx](https://docs.docker.com/reference/cli/docker/buildx/) plugin
-- [dmenu](https://tools.suckless.org/dmenu/) — mode selection prompt
-- [fzf](https://github.com/junegunn/fzf) — directory picker
+- [dmenu](https://tools.suckless.org/dmenu/) — mode selection prompt (not required when using `-f`)
+- [fzf](https://github.com/junegunn/fzf) — directory picker; also used for mode selection with `-f`
 - Current user must be a member of the `docker` group
 
 ## Installation
@@ -20,16 +20,17 @@ ln -s "$PWD/claude-cli/claude-cli.sh" ~/.local/bin/claude-cli
 ## Usage
 
 ```
-claude-cli [-b] [-c] [-h]
+claude-cli [-b] [-c] [-f] [-h]
 ```
 
 | Option | Description |
 |--------|-------------|
 | `-b`   | Build (or rebuild) the `claude-cli:latest` Docker image |
 | `-c`   | Remove all `claude-cli` containers; optionally remove the image |
+| `-f`   | Use `fzf` instead of `dmenu` for the mode selection prompt |
 | `-h`   | Show help |
 
-Running without any option launches a `dmenu` prompt to choose a mode.
+Running without any option launches a `dmenu` prompt to choose a mode. Pass `-f` to use `fzf` instead — useful on setups without dmenu or when you prefer a terminal picker.
 
 ## Modes
 
