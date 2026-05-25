@@ -2,16 +2,18 @@
 
 NOTIFY_ERROR_ICON="${NOTIFY_ERROR_ICON:-$XDG_CONFIG_HOME/dunst/critical.png}"
 CLAUDE_IMAGE="${CLAUDE_IMAGE:-claude-cli:latest}"
+USE_FZF=0
 
 show_help() {
 	printf '%s\n' \
-		"Usage: $(basename "$0") [-b] [-c] [-h]" \
+		"Usage: $(basename "$0") [-b] [-c] [-f] [-h]" \
 		"" \
 		"Run Claude Code (claude-cli:latest) inside a Docker container." \
 		"" \
 		"Options:" \
 		"  -b    Build the Docker image (rebuilds if it already exists)" \
 		"  -c    Clean up: remove all claude-cli containers and optionally the image" \
+		"  -f    Use fzf instead of dmenu to select the run mode" \
 		"  -h    Show this help message" \
 		"" \
 		"If no option is given, a dmenu prompt lets you choose a run mode:" \
@@ -86,18 +88,19 @@ EOF
 	[ -d /tmp/.claude-cli-dockerfile ] && rm -rf /tmp/.claude-cli-dockerfile
 }
 
-while getopts "bhc" opt; do
+while getopts "bhcf" opt; do
 	case "$opt" in
 		b) build_image; exit 0 ;;
 		h) show_help; exit 0 ;;
 		c) cleanup; exit 0 ;;
+		f) USE_FZF=1 ;;
 		*) exit 1 ;;
 	esac
 done
 
 check_prerequisite "id -nG | grep -qw docker"
 check_prerequisite "command -v docker"
-check_prerequisite "command -v dmenu"
+[ "$USE_FZF" = "0" ] && check_prerequisite "command -v dmenu"
 check_prerequisite "command -v fzf"
 check_prerequisite "docker buildx version"
 
@@ -107,7 +110,11 @@ if ! docker image inspect "$CLAUDE_IMAGE" >/dev/null 2>&1; then
 	build_image
 fi
 
-mode=$(printf "no-dir\nsingle-dir\nmulti-dir" | dmenu -i -c -l 3 -p "Run claude-cli:")
+if [ "$USE_FZF" = "1" ]; then
+	mode=$(printf "no-dir\nsingle-dir\nmulti-dir" | fzf --prompt "Run claude-cli: ")
+else
+	mode=$(printf "no-dir\nsingle-dir\nmulti-dir" | dmenu -i -c -l 3 -p "Run claude-cli:")
+fi
 [ -z "$mode" ] && exit 0
 
 if [ -n "$XDG_CONFIG_HOME" ]; then
