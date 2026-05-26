@@ -52,7 +52,7 @@ check_prerequisite() {
 	if ! eval "$1" >/dev/null 2>&1; then
 		msg="$(printf "Error: prerequisite failed: %s" "$1")"
 		printf "%s\n" "$msg" >&2
-		send_notification "$msg"
+		command -v notify-send && send_notification "$msg"
 		exit 127
 	fi
 }
@@ -80,7 +80,7 @@ EOF
 		-t "$CLAUDE_IMAGE" -f /tmp/.claude-cli-dockerfile/Dockerfile .; then
 		msg="$(printf "Error: image build error!")"
 		printf "%s\n" "$msg" >&2
-		send_notification "$msg"
+		command -v notify-send && send_notification "$msg"
 		cleanup
 		exit 1
 	fi
