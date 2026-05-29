@@ -37,6 +37,9 @@ Running without any option launches a `dmenu` prompt to choose a mode. Pass `-f`
 ### `no-dir`
 Launches Claude without mounting any project directories. Useful for general questions, quick tasks, or exploring Claude's capabilities without exposing local files.
 
+### `current-dir`
+Mounts the current working directory $PWD directly.
+
 ### `single-dir`
 Opens an `fzf` picker to select one directory from your home tree (up to 3 levels deep). The selected directory is mounted and set as the working directory inside the container.
 

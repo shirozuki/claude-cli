@@ -18,6 +18,7 @@ show_help() {
 		"" \
 		"If no option is given, a dmenu prompt lets you choose a run mode:" \
 		"  no-dir       Run Claude without mounting any project directories" \
+		"  current-dir  Mount the current working directory as the working dir" \
 		"  single-dir   Select one directory via fzf and mount it as the working dir" \
 		"  multi-dir    Select multiple directories via fzf, then pick the working dir" \
 		"" \
@@ -111,9 +112,9 @@ if ! docker image inspect "$CLAUDE_IMAGE" >/dev/null 2>&1; then
 fi
 
 if [ "$USE_FZF" = "1" ]; then
-	mode=$(printf "no-dir\nsingle-dir\nmulti-dir" | fzf --prompt "Run claude-cli: ")
+	mode=$(printf "no-dir\ncurrent-dir\nsingle-dir\nmulti-dir" | fzf --prompt "Run claude-cli: ")
 else
-	mode=$(printf "no-dir\nsingle-dir\nmulti-dir" | dmenu -i -c -l 3 -p "Run claude-cli:")
+	mode=$(printf "no-dir\ncurrent-dir\nsingle-dir\nmulti-dir" | dmenu -i -c -l 4 -p "Run claude-cli:")
 fi
 [ -z "$mode" ] && exit 0
 
@@ -136,6 +137,25 @@ case "$mode" in
 			-v "$CLAUDE_BASEDIR/.claude:/home/claude/.claude" \
 			-v "$CLAUDE_BASEDIR/.claude.json:/home/claude/.claude.json" \
 			-w "/home/claude" \
+			--name "claude-cli-$(date +%Y%m%d-%H%M%S)" \
+			"$CLAUDE_IMAGE"
+		;;
+	current-dir)
+		case "$PWD" in
+			"$HOME"/*)
+				RELDIR="${PWD#$HOME/}"
+				;;
+			*)
+				RELDIR="$(basename "$PWD")"
+				;;
+		esac
+		docker run \
+			-it \
+			--rm \
+			-v "$CLAUDE_BASEDIR/.claude:/home/claude/.claude" \
+			-v "$CLAUDE_BASEDIR/.claude.json:/home/claude/.claude.json" \
+			-v "$PWD:/home/claude/$RELDIR" \
+			-w "/home/claude/$RELDIR" \
 			--name "claude-cli-$(date +%Y%m%d-%H%M%S)" \
 			"$CLAUDE_IMAGE"
 		;;
