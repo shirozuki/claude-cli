@@ -68,10 +68,12 @@ build_image() {
 FROM node:lts
 ARG uid=1000
 ARG gid=1000
+ENV NPM_CONFIG_PREFIX=/home/claude/.npm
+ENV PATH=/home/claude/.npm/bin:$PATH
 RUN groupmod -g $gid -n claude node && \
     usermod -u $uid -l claude -d /home/claude -m node
-RUN npm install -g @anthropic-ai/claude-code
 USER claude
+RUN npm install -g @anthropic-ai/claude-code
 ENTRYPOINT ["claude"]
 EOF
 
