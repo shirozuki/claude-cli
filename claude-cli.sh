@@ -140,7 +140,7 @@ case "$mode" in
 			-v "$CLAUDE_BASEDIR/.claude.json:/home/claude/.claude.json" \
 			-w "/home/claude" \
 			--name "claude-cli-$(date +%Y%m%d-%H%M%S)" \
-			"$CLAUDE_IMAGE"
+			"$CLAUDE_IMAGE" $CLAUDE_CLI_FLAGS
 		;;
 	current-dir)
 		case "$PWD" in
@@ -159,7 +159,7 @@ case "$mode" in
 			-v "$PWD:/home/claude/$RELDIR" \
 			-w "/home/claude/$RELDIR" \
 			--name "claude-cli-$(date +%Y%m%d-%H%M%S)" \
-			"$CLAUDE_IMAGE"
+			"$CLAUDE_IMAGE" $CLAUDE_CLI_FLAGS
 		;;
 	single-dir)
 		DIR=$(find "$HOME" -mindepth 1 -maxdepth 3 -type d | fzf --prompt "Select directory: ")
@@ -173,7 +173,7 @@ case "$mode" in
 			-v "$DIR:/home/claude/$RELDIR" \
 			-w "/home/claude/$RELDIR" \
 			--name "claude-cli-$(date +%Y%m%d-%H%M%S)" \
-			"$CLAUDE_IMAGE"
+			"$CLAUDE_IMAGE" $CLAUDE_CLI_FLAGS
 		;;
 	multi-dir)
 		DIRS=$(find "$HOME" -mindepth 1 -maxdepth 3 -type d | fzf --prompt "Select directories: " --multi)
@@ -198,7 +198,7 @@ EOF
 			$VOLUMES \
 			-w "/home/claude/$RELWORK" \
 			--name "claude-cli-$(date +%Y%m%d-%H%M%S)" \
-			"$CLAUDE_IMAGE"
+			"$CLAUDE_IMAGE" $CLAUDE_CLI_FLAGS
 		;;
 	*)
 		exit 0
