@@ -20,7 +20,7 @@ ln -s "$PWD/claude-cli/claude-cli.sh" ~/.local/bin/claude-cli
 ## Usage
 
 ```
-claude-cli [-b] [-c] [-f] [-h]
+claude-cli [-b] [-c] [-f] [-h] [DIR...]
 ```
 
 | Option | Description |
@@ -30,7 +30,21 @@ claude-cli [-b] [-c] [-f] [-h]
 | `-f`   | Use `fzf` instead of `dmenu` for the mode selection prompt |
 | `-h`   | Show help |
 
-Running without any option launches a `dmenu` prompt to choose a mode. Pass `-f` to use `fzf` instead — useful on setups without dmenu or when you prefer a terminal picker.
+Running without any option or argument launches a `dmenu` prompt to choose a mode. Pass `-f` to use `fzf` instead — useful on setups without dmenu or when you prefer a terminal picker.
+
+### Passing directories as arguments
+
+You can skip the menu and pickers entirely by passing directories directly on the command line:
+
+```sh
+claude-cli ~/projects/app            # single-dir mode
+claude-cli ~/projects/app ~/shared   # multi-dir mode (first arg is the working dir)
+```
+
+- One argument runs `single-dir` mode with that directory.
+- Two or more arguments run `multi-dir` mode, mounting every directory and using the **first** as the working directory.
+
+Relative paths are resolved against the current working directory, so `claude-cli .` mounts `$PWD`. When directories are passed this way, `dmenu` and `fzf` are not required.
 
 ## Modes
 
