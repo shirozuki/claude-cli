@@ -91,20 +91,60 @@ EOF
 	[ -d /tmp/.claude-cli-dockerfile ] && rm -rf /tmp/.claude-cli-dockerfile
 }
 
-while getopts "bhcf" opt; do
-	case "$opt" in
-		b) build_image; exit 0 ;;
-		h) show_help; exit 0 ;;
-		c) cleanup; exit 0 ;;
-		f) USE_FZF=1 ;;
-		*) exit 1 ;;
-	esac
-done
+# Parse options and directory arguments, setting: action, USE_FZF, mode, DIR,
+# DIRS, WORKDIR. Returns non-zero (and prints to stderr) on a usage error.
+parse_args() {
+	USE_FZF=0
+	action=""
+	mode=""
+	DIR=""
+	DIRS=""
+	WORKDIR=""
+	OPTIND=1
+
+	while getopts "bhcf" opt; do
+		case "$opt" in
+			b) action=build_image ;;
+			h) action=show_help ;;
+			c) action=cleanup ;;
+			f) USE_FZF=1 ;;
+			*) return 1 ;;
+		esac
+	done
+	shift $((OPTIND - 1))
+
+	# -h always wins and prints help, even with extra arguments. -b/-c are
+	# standalone actions and reject stray directory arguments.
+	if [ -n "$action" ]; then
+		if [ "$action" != "show_help" ] && [ "$#" -gt 0 ]; then
+			echo "Error: -b and -c take no directory arguments" >&2
+			return 1
+		fi
+		return 0
+	fi
+
+	# DIR args bypass the menu: one => single-dir, several => multi-dir (first = workdir).
+	[ "$#" -eq 1 ] && { mode=single-dir; DIR=$1; }
+	[ "$#" -gt 1 ] && { mode=multi-dir; DIRS=$(printf '%s\n' "$@"); WORKDIR=$1; }
+	return 0
+}
+
+# When sourced for testing, expose the functions above and skip execution.
+[ -n "${CLAUDE_CLI_SOURCE_ONLY:-}" ] && return 0
+
+parse_args "$@" || exit 1
+
+if [ -n "$action" ]; then
+	"$action"
+	exit 0
+fi
 
 check_prerequisite "id -nG | grep -qw docker"
 check_prerequisite "command -v docker"
-[ "$USE_FZF" = "0" ] && check_prerequisite "command -v dmenu"
-check_prerequisite "command -v fzf"
+if [ -z "$mode" ]; then
+	[ "$USE_FZF" = "0" ] && check_prerequisite "command -v dmenu"
+	check_prerequisite "command -v fzf"
+fi
 check_prerequisite "docker buildx version"
 
 if ! docker image inspect "$CLAUDE_IMAGE" >/dev/null 2>&1; then
@@ -113,12 +153,14 @@ if ! docker image inspect "$CLAUDE_IMAGE" >/dev/null 2>&1; then
 	build_image
 fi
 
-if [ "$USE_FZF" = "1" ]; then
-	mode=$(printf "no-dir\ncurrent-dir\nsingle-dir\nmulti-dir" | fzf --prompt "Run claude-cli: ")
-else
-	mode=$(printf "no-dir\ncurrent-dir\nsingle-dir\nmulti-dir" | dmenu -i -c -l 4 -p "Run claude-cli:")
+if [ -z "$mode" ]; then
+	if [ "$USE_FZF" = "1" ]; then
+		mode=$(printf "no-dir\ncurrent-dir\nsingle-dir\nmulti-dir" | fzf --prompt "Run claude-cli: ")
+	else
+		mode=$(printf "no-dir\ncurrent-dir\nsingle-dir\nmulti-dir" | dmenu -i -c -l 4 -p "Run claude-cli:")
+	fi
+	[ -z "$mode" ] && exit 0
 fi
-[ -z "$mode" ] && exit 0
 
 if [ -n "$XDG_CONFIG_HOME" ]; then
 	base="$XDG_CONFIG_HOME/claude"
@@ -162,8 +204,9 @@ case "$mode" in
 			"$CLAUDE_IMAGE"
 		;;
 	single-dir)
-		DIR=$(find "$HOME" -mindepth 1 -maxdepth 3 -type d | fzf --prompt "Select directory: ")
+		[ -z "$DIR" ] && DIR=$(find "$HOME" -mindepth 1 -maxdepth 3 -type d | fzf --prompt "Select directory: ")
 		[ -z "$DIR" ] && exit 0
+		case "$DIR" in /*) ;; *) DIR="$PWD/$DIR" ;; esac
 		RELDIR="${DIR#$HOME/}"
 		docker run \
 			-it \
@@ -176,19 +219,21 @@ case "$mode" in
 			"$CLAUDE_IMAGE"
 		;;
 	multi-dir)
-		DIRS=$(find "$HOME" -mindepth 1 -maxdepth 3 -type d | fzf --prompt "Select directories: " --multi)
+		[ -z "$DIRS" ] && DIRS=$(find "$HOME" -mindepth 1 -maxdepth 3 -type d | fzf --prompt "Select directories: " --multi)
 		[ -z "$DIRS" ] && exit 0
 
-		WORKDIR=$(printf "%s" "$DIRS" | fzf --prompt "Select working directory: ")
+		[ -z "$WORKDIR" ] && WORKDIR=$(printf "%s" "$DIRS" | fzf --prompt "Select working directory: ")
 		[ -z "$WORKDIR" ] && exit 0
 
 		VOLUMES=""
 		while IFS= read -r dir; do
+			case "$dir" in /*) ;; *) dir="$PWD/$dir" ;; esac
 			RELDIR="${dir#$HOME/}"
 			VOLUMES="$VOLUMES -v $dir:/home/claude/$RELDIR"
 		done <<EOF
 $DIRS
 EOF
+		case "$WORKDIR" in /*) ;; *) WORKDIR="$PWD/$WORKDIR" ;; esac
 		RELWORK="${WORKDIR#$HOME/}"
 		docker run \
 			-it \
