@@ -77,12 +77,20 @@ The following environment variables can be set to override defaults without edit
 |----------|---------|-------------|
 | `CLAUDE_IMAGE` | `claude-cli:latest` | Docker image name to use |
 | `NOTIFY_ERROR_ICON` | `$XDG_CONFIG_HOME/dunst/critical.png` | Icon used in desktop error notifications |
+| `CLAUDE_CLI_FLAGS` | (none) | Extra flags passed through to the `claude` binary inside the container |
 
-Example:
+Examples:
 
 ```sh
 CLAUDE_IMAGE=my-claude:dev claude-cli
+
+# Pass flags through to Claude Code itself
+CLAUDE_CLI_FLAGS="--resume $session_id --dangerously-skip-permissions" claude-cli
 ```
+
+`CLAUDE_CLI_FLAGS` is word-split, so each space-separated token becomes a
+separate argument. Quote arguments that contain spaces is not supported — pass
+only flags whose values have no spaces.
 
 ## How it works
 
