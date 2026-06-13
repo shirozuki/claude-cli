@@ -40,8 +40,6 @@ cleanup() {
 			docker image rm "$CLAUDE_IMAGE"
 		fi
 	fi
-
-	[ -d /tmp/.claude-cli-dockerfile ] && rm -rf /tmp/.claude-cli-dockerfile
 }
 
 send_notification() {
@@ -63,32 +61,35 @@ build_image() {
 		docker image rm "$CLAUDE_IMAGE"
 	fi
 
-	mkdir -p /tmp/.claude-cli-dockerfile
-	cat > /tmp/.claude-cli-dockerfile/Dockerfile <<'EOF'
-FROM node:lts
-ARG uid=1000
-ARG gid=1000
-ENV NPM_CONFIG_PREFIX=/home/claude/.npm
-ENV PATH=/home/claude/.npm/bin:$PATH
-RUN groupmod -g $gid -n claude node && \
-    usermod -u $uid -l claude -d /home/claude -m node
-USER claude
-RUN npm install -g @anthropic-ai/claude-code
-ENTRYPOINT ["claude"]
-EOF
+	# Dockerfile selection, in order of precedence:
+	#   1. Custom Dockerfile path (CLAUDE_CLI_DOCKERFILE)
+	#   2. Dockerfile template (claude-cli-dockerfile)
+	#   3. Default Dockerfile (claude-cli-dockerfile.default)
+	dir="$(dirname "$(realpath "$0")")"
+	if [ -n "${CLAUDE_CLI_DOCKERFILE:-}" ]; then
+		dockerfile="$CLAUDE_CLI_DOCKERFILE"
+	elif [ -f "$dir/claude-cli-dockerfile" ]; then
+		dockerfile="$dir/claude-cli-dockerfile"
+	else
+		dockerfile="$dir/claude-cli-dockerfile.default"
+	fi
+	if [ ! -f "$dockerfile" ]; then
+		msg="$(printf "Error: Dockerfile not found: %s" "$dockerfile")"
+		printf "%s\n" "$msg" >&2
+		command -v notify-send && send_notification "$msg"
+		exit 1
+	fi
 
 	if ! docker buildx build \
 		--build-arg uid="$(id -u)" \
 		--build-arg gid="$(id -g)" \
-		-t "$CLAUDE_IMAGE" -f /tmp/.claude-cli-dockerfile/Dockerfile .; then
+		-t "$CLAUDE_IMAGE" -f "$dockerfile" "$(dirname "$dockerfile")"; then
 		msg="$(printf "Error: image build error!")"
 		printf "%s\n" "$msg" >&2
 		command -v notify-send && send_notification "$msg"
 		cleanup
 		exit 1
 	fi
-
-	[ -d /tmp/.claude-cli-dockerfile ] && rm -rf /tmp/.claude-cli-dockerfile
 }
 
 # Parse options and directory arguments, setting: action, USE_FZF, mode, DIR,
