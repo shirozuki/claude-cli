@@ -103,17 +103,18 @@ On first run (or after `-b`), the script builds a Docker image based on `node:lt
 The Dockerfile is selected in order of precedence:
 
 1. Custom Dockerfile path (`CLAUDE_CLI_DOCKERFILE`)
-2. Dockerfile template (`claude-cli-dockerfile`)
-3. Default Dockerfile (`claude-cli-dockerfile.default`)
+2. Dockerfile next to the script (`claude-cli-dockerfile`)
+3. Inline Dockerfile baked into the script (the default)
 
-To customize the image without fighting `git pull`, copy the default to a local override the script prefers when present:
+The customization is purely additive: with none of the above set, the script writes its built-in Dockerfile to `/tmp` and builds from that, so `claude-cli.sh` stays self-contained and can be fetched and run entirely on its own.
+
+To customize the image, drop a `claude-cli-dockerfile` next to the script and it will be preferred when present:
 
 ```sh
-cp claude-cli-dockerfile.default claude-cli-dockerfile
-# edit claude-cli-dockerfile to taste, then rebuild
+# create claude-cli-dockerfile to taste, then rebuild
 claude-cli -b
 ```
 
-The tracked `.default` keeps updating cleanly on `git pull`, while your `claude-cli-dockerfile` is left untouched. Alternatively, point `CLAUDE_CLI_DOCKERFILE` at a Dockerfile anywhere on disk.
+Alternatively, point `CLAUDE_CLI_DOCKERFILE` at a Dockerfile anywhere on disk.
 
 The image is tagged `claude-cli:latest` and reused on subsequent runs until you explicitly rebuild with `-b`.
