@@ -78,6 +78,7 @@ The following environment variables can be set to override defaults without edit
 | `CLAUDE_IMAGE` | `claude-cli:latest` | Docker image name to use |
 | `NOTIFY_ERROR_ICON` | `$XDG_CONFIG_HOME/dunst/critical.png` | Icon used in desktop error notifications |
 | `CLAUDE_CLI_FLAGS` | (none) | Extra flags passed through to the `claude` binary inside the container |
+| `CLAUDE_CLI_DOCKERFILE` | (see below) | Path to a custom Dockerfile used to build the image (highest precedence). |
 
 Examples:
 
@@ -86,6 +87,9 @@ CLAUDE_IMAGE=my-claude:dev claude-cli
 
 # Pass flags through to Claude Code itself
 CLAUDE_CLI_FLAGS="--resume $session_id --dangerously-skip-permissions" claude-cli
+
+# Build the image from a custom Dockerfile
+CLAUDE_CLI_DOCKERFILE=~/my-claude.dockerfile claude-cli -b
 ```
 
 `CLAUDE_CLI_FLAGS` is word-split, so each space-separated token becomes a
@@ -95,5 +99,22 @@ only flags whose values have no spaces.
 ## How it works
 
 On first run (or after `-b`), the script builds a Docker image based on `node:lts` with `@anthropic-ai/claude-code` installed globally. The container user is created with the same UID/GID as the host user to avoid file permission issues on bind-mounted volumes.
+
+The Dockerfile is selected in order of precedence:
+
+1. Custom Dockerfile path (`CLAUDE_CLI_DOCKERFILE`)
+2. Dockerfile next to the script (`claude-cli-dockerfile`)
+3. Inline Dockerfile baked into the script (the default)
+
+The customization is purely additive: with none of the above set, the script writes its built-in Dockerfile to `/tmp` and builds from that, so `claude-cli.sh` stays self-contained and can be fetched and run entirely on its own.
+
+To customize the image, drop a `claude-cli-dockerfile` next to the script and it will be preferred when present:
+
+```sh
+# create claude-cli-dockerfile to taste, then rebuild
+claude-cli -b
+```
+
+Alternatively, point `CLAUDE_CLI_DOCKERFILE` at a Dockerfile anywhere on disk.
 
 The image is tagged `claude-cli:latest` and reused on subsequent runs until you explicitly rebuild with `-b`.
