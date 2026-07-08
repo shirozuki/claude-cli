@@ -150,6 +150,33 @@ parse_args() {
 	return 0
 }
 
+# Build --mount arguments from CLAUDE_CLI_MOUNTS, a colon-separated list of
+# Docker --mount specifications that are passed through verbatim. Each
+# colon-separated entry becomes one `--mount <spec>` flag, e.g.
+#
+#   CLAUDE_CLI_MOUNTS='type=bind,src=/home,dst=/home/claude/user_home,readonly'
+#   CLAUDE_CLI_MOUNTS='type=bind,src=./cfg,dst=/tmp/cfg:type=bind,src=/x,dst=/x'
+#
+# ":" is safe as the list separator because Docker's --mount syntax is a set of
+# comma-separated key=value pairs and never contains a colon. Field notes:
+#   - src=/source= may be relative to the current directory (e.g. ./foo); "~"
+#     is NOT expanded, so spell paths out in full.
+#   - dst=/destination=/target= must be an absolute path.
+# Specs go straight to `docker run`, which validates them and errors on, say, a
+# missing bind source. Result is left in CLAUDE_MOUNTS.
+build_mounts() {
+	CLAUDE_MOUNTS=""
+	[ -z "${CLAUDE_CLI_MOUNTS:-}" ] && return 0
+
+	OLDIFS=$IFS
+	IFS=':'
+	for spec in $CLAUDE_CLI_MOUNTS; do
+		[ -z "$spec" ] && continue
+		CLAUDE_MOUNTS="$CLAUDE_MOUNTS --mount $spec"
+	done
+	IFS=$OLDIFS
+}
+
 # When sourced for testing, expose the functions above and skip execution.
 [ -n "${CLAUDE_CLI_SOURCE_ONLY:-}" ] && return 0
 
@@ -194,6 +221,8 @@ else
 	CLAUDE_BASEDIR="$HOME"
 fi
 
+build_mounts
+
 case "$mode" in
 	no-dir)
 		docker run \
@@ -201,6 +230,7 @@ case "$mode" in
 			--rm \
 			-v "$CLAUDE_BASEDIR/.claude:/home/claude/.claude" \
 			-v "$CLAUDE_BASEDIR/.claude.json:/home/claude/.claude.json" \
+			$CLAUDE_MOUNTS \
 			-w "/home/claude" \
 			--name "claude-cli-$(date +%Y%m%d-%H%M%S)" \
 			"$CLAUDE_IMAGE" $CLAUDE_CLI_FLAGS
@@ -220,6 +250,7 @@ case "$mode" in
 			-v "$CLAUDE_BASEDIR/.claude:/home/claude/.claude" \
 			-v "$CLAUDE_BASEDIR/.claude.json:/home/claude/.claude.json" \
 			-v "$PWD:/home/claude/$RELDIR" \
+			$CLAUDE_MOUNTS \
 			-w "/home/claude/$RELDIR" \
 			--name "claude-cli-$(date +%Y%m%d-%H%M%S)" \
 			"$CLAUDE_IMAGE" $CLAUDE_CLI_FLAGS
@@ -235,6 +266,7 @@ case "$mode" in
 			-v "$CLAUDE_BASEDIR/.claude:/home/claude/.claude" \
 			-v "$CLAUDE_BASEDIR/.claude.json:/home/claude/.claude.json" \
 			-v "$DIR:/home/claude/$RELDIR" \
+			$CLAUDE_MOUNTS \
 			-w "/home/claude/$RELDIR" \
 			--name "claude-cli-$(date +%Y%m%d-%H%M%S)" \
 			"$CLAUDE_IMAGE" $CLAUDE_CLI_FLAGS
@@ -262,6 +294,7 @@ EOF
 			-v "$CLAUDE_BASEDIR/.claude:/home/claude/.claude" \
 			-v "$CLAUDE_BASEDIR/.claude.json:/home/claude/.claude.json" \
 			$VOLUMES \
+			$CLAUDE_MOUNTS \
 			-w "/home/claude/$RELWORK" \
 			--name "claude-cli-$(date +%Y%m%d-%H%M%S)" \
 			"$CLAUDE_IMAGE" $CLAUDE_CLI_FLAGS

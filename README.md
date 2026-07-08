@@ -79,6 +79,7 @@ The following environment variables can be set to override defaults without edit
 | `NOTIFY_ERROR_ICON` | `$XDG_CONFIG_HOME/dunst/critical.png` | Icon used in desktop error notifications |
 | `CLAUDE_CLI_FLAGS` | (none) | Extra flags passed through to the `claude` binary inside the container |
 | `CLAUDE_CLI_DOCKERFILE` | (see below) | Path to a custom Dockerfile used to build the image (highest precedence). |
+| `CLAUDE_CLI_MOUNTS` | (none) | Colon-separated Docker `--mount` specs to add to the container (see below). |
 
 Examples:
 
@@ -90,6 +91,44 @@ CLAUDE_CLI_FLAGS="--resume $session_id --dangerously-skip-permissions" claude-cl
 
 # Build the image from a custom Dockerfile
 CLAUDE_CLI_DOCKERFILE=~/my-claude.dockerfile claude-cli -b
+
+# Mount extra config into the container (e.g. the GitHub CLI's config)
+CLAUDE_CLI_MOUNTS="type=bind,src=$HOME/.config/gh,dst=/home/claude/.config/gh" claude-cli
+```
+
+### Mounting additional paths
+
+`CLAUDE_CLI_MOUNTS` is a colon-separated list of Docker
+[`--mount`](https://docs.docker.com/engine/storage/bind-mounts/) specifications.
+Each colon-separated entry is passed through to `docker run` verbatim as one
+`--mount <spec>`, giving you the full `--mount` syntax (bind mounts, `readonly`,
+etc.). This is handy for tools that read their own config from your home
+directory — for example, mounting `$HOME/.config/gh` (see below: avoid `~`)
+This will allow for features like `/install-github-app` to work inside the container.
+
+A colon is a safe separator between entries because Docker's `--mount` syntax is
+a set of comma-separated `key=value` pairs and never contains a colon. Notes on
+the fields:
+
+- `src=` / `source=` may be relative to the current directory (e.g. `./foo`).
+  `~` is **not** expanded by Docker, so spell out full paths (use `$HOME/...`).
+- `dst=` / `destination=` / `target=` must be an **absolute** path.
+
+Specs are handed straight to `docker run`, which validates them and fails the
+run if, for example, a bind source does not exist. The variable is entirely
+optional.
+
+Examples:
+
+```sh
+# Mount your host home read-only for reference
+CLAUDE_CLI_MOUNTS='type=bind,src=/home,dst=/home/claude/user_home,readonly' claude-cli
+
+# Mount a config directory using a path relative to the current directory
+CLAUDE_CLI_MOUNTS='type=bind,src=./.config/waybar,dst=/tmp/waybar' claude-cli
+
+# Multiple mounts, separated by a colon. The first mount is relative and read only (,ro)
+CLAUDE_CLI_MOUNTS='type=bind,src=../repos/ref,dst=/home/claude/ref,ro:type=bind,src=/opt/file,dst=/opt/file' claude-cli
 ```
 
 `CLAUDE_CLI_FLAGS` is word-split, so each space-separated token becomes a
