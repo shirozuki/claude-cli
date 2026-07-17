@@ -77,6 +77,30 @@ run -f /home/user/app
 eq "-f USE_FZF" "$USE_FZF" "1"
 eq "-f mode"    "$mode"    "single-dir"
 
+# --- build_mounts ------------------------------------------------------------
+# CLAUDE_CLI_MOUNTS is a colon-separated list of verbatim Docker --mount specs.
+
+# unset variable => no mounts
+unset CLAUDE_CLI_MOUNTS
+build_mounts
+eq "no var => empty" "$CLAUDE_MOUNTS" ""
+
+# a single spec becomes one --mount flag, passed through verbatim
+CLAUDE_CLI_MOUNTS="type=bind,src=/home,dst=/home/claude/user_home,readonly"
+build_mounts
+eq "single spec" "$CLAUDE_MOUNTS" " --mount type=bind,src=/home,dst=/home/claude/user_home,readonly"
+
+# colon separates multiple specs; each becomes its own --mount flag
+CLAUDE_CLI_MOUNTS="type=bind,src=./cfg,dst=/tmp/cfg:type=bind,src=/opt/x,dst=/opt/x"
+build_mounts
+contains "multi spec a" "$CLAUDE_MOUNTS" "--mount type=bind,src=./cfg,dst=/tmp/cfg"
+contains "multi spec b" "$CLAUDE_MOUNTS" "--mount type=bind,src=/opt/x,dst=/opt/x"
+
+# empty entries (e.g. a trailing colon) are skipped
+CLAUDE_CLI_MOUNTS="type=bind,src=/a,dst=/a:"
+build_mounts
+eq "trailing colon skipped" "$CLAUDE_MOUNTS" " --mount type=bind,src=/a,dst=/a"
+
 if [ "$fails" -eq 0 ]; then
 	echo "All tests passed."
 	exit 0
