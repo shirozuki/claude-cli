@@ -80,6 +80,7 @@ The following environment variables can be set to override defaults without edit
 | `CLAUDE_CLI_FLAGS` | (none) | Extra flags passed through to the `claude` binary inside the container |
 | `CLAUDE_CLI_DOCKERFILE` | (see below) | Path to a custom Dockerfile used to build the image (highest precedence). |
 | `CLAUDE_CLI_MOUNTS` | (none) | Colon-separated Docker `--mount` specs to add to the container (see below). |
+| `CLAUDE_CLI_PULL` | (off) | If set to a non-empty value, `-b` re-pulls the base image of every `FROM` line before building, instead of using locally cached bases. |
 
 Examples:
 
@@ -94,6 +95,9 @@ CLAUDE_CLI_DOCKERFILE=~/my-claude.dockerfile claude-cli -b
 
 # Mount extra config into the container (e.g. the GitHub CLI's config)
 CLAUDE_CLI_MOUNTS="type=bind,src=$HOME/.config/gh,dst=/home/claude/.config/gh" claude-cli
+
+# Rebuild the image with freshly pulled base images
+CLAUDE_CLI_PULL=1 claude-cli -b
 ```
 
 ### Mounting additional paths
