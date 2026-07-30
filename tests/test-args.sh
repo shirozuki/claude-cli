@@ -101,6 +101,49 @@ CLAUDE_CLI_MOUNTS="type=bind,src=/a,dst=/a:"
 build_mounts
 eq "trailing colon skipped" "$CLAUDE_MOUNTS" " --mount type=bind,src=/a,dst=/a"
 
+# --- build_image / CLAUDE_CLI_PULL -------------------------------------------
+# build_image only passes --pull to buildx when CLAUDE_CLI_PULL is non-empty.
+# A stub docker on PATH records its arguments so no daemon is needed.
+
+stubdir=$(mktemp -d)
+trap 'rm -f "$errfile"; rm -rf "$stubdir"' EXIT
+cat > "$stubdir/docker" <<'EOF'
+#!/bin/sh
+printf '%s\n' "$*" >> "$DOCKER_LOG"
+# "docker image inspect" reports the image as missing; everything else succeeds.
+[ "$1" = "image" ] && exit 1
+exit 0
+EOF
+chmod +x "$stubdir/docker"
+printf 'FROM scratch\n' > "$stubdir/Dockerfile"
+PATH="$stubdir:$PATH"
+CLAUDE_CLI_DOCKERFILE="$stubdir/Dockerfile"
+export DOCKER_LOG
+
+# buildx_has_pull: run build_image with a fresh log, set to 1 if --pull was
+# passed to "docker buildx build".
+buildx_has_pull() {
+	DOCKER_LOG="$stubdir/docker.log"
+	: > "$DOCKER_LOG"
+	build_image >/dev/null 2>&1
+	case "$(grep '^buildx build' "$DOCKER_LOG")" in
+		*--pull*) buildx_has_pull=1 ;;
+		*) buildx_has_pull=0 ;;
+	esac
+}
+
+unset CLAUDE_CLI_PULL
+buildx_has_pull
+eq "unset CLAUDE_CLI_PULL => no --pull" "$buildx_has_pull" "0"
+
+CLAUDE_CLI_PULL=""
+buildx_has_pull
+eq "empty CLAUDE_CLI_PULL => no --pull" "$buildx_has_pull" "0"
+
+CLAUDE_CLI_PULL=1
+buildx_has_pull
+eq "CLAUDE_CLI_PULL=1 => --pull" "$buildx_has_pull" "1"
+
 if [ "$fails" -eq 0 ]; then
 	echo "All tests passed."
 	exit 0

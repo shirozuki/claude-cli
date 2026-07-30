@@ -97,7 +97,11 @@ EOF
 		exit 1
 	fi
 
+	# CLAUDE_CLI_PULL (off by default): when set to a non-empty value, pass
+	# --pull so buildx re-pulls every base image referenced by a FROM line
+	# (handles multi-stage builds) instead of using the local cache.
 	if ! docker buildx build \
+		${CLAUDE_CLI_PULL:+--pull} \
 		--build-arg uid="$(id -u)" \
 		--build-arg gid="$(id -g)" \
 		-t "$CLAUDE_IMAGE" -f "$dockerfile" "$(dirname "$dockerfile")"; then
